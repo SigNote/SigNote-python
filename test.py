@@ -62,7 +62,7 @@ def sn__generate_init():
   out += [SN__ISOCODE, SN__SQNUMBER]
 
   # flags, deno, decimal = 32 bits
-  out += [struct.pack( "!BIB", SN__DENOMINATION_FLAGS, SN__DENOMINATION, SN__DECIMALPLACE)]
+  out += [struct.pack( "!BHB", SN__DENOMINATION_FLAGS, SN__DENOMINATION, SN__DECIMALPLACE)]
 
   #trust root information = 768 bits
   out += [SN__MINT_PK, SN__MINT_PK_CRSIG]
