@@ -4,6 +4,41 @@ import struct
 import time, tai64n
 from pyblake2 import blake2b
 
+from construct import Struct, Const, Int8ub, Bytes, Int16ub
+
+_SN_VERSION = Struct(
+  "magic" / Const(b"SN")
+, "version" / Const(1, Int16ub)
+)
+
+_SN_SECTION_HEADER = Struct(
+  "type" / Int8ub
+ ,"flags" / Int8ub
+ ,"length" / Int16ub
+);
+
+_SN_SECTION_INIT = Struct(
+  "version" / _SN_VERSION
+ ,"header" / Struct(
+    "type" / Int8ub
+    ,"flags" / Int8ub
+    ,"length" / Const(248, Int16ub)
+  )
+ ,"isocode" / Bytes(3)
+ ,"seqnum" / Bytes(13)
+ #SN__DENOMINATION_FLAGS, SN__DENOMINATION, SN__DECIMALPLACE
+ ,"denomination_flags" / Int8ub
+ ,"denomination" / Int16ub
+ ,"decimalplace" / Int8ub
+ #SN__MINT_PK, SN__MINT_PK_CRSIG
+ ,"mint_pk" / Bytes(32)
+ ,"mint_pk_crsig" / Bytes(64)
+ #nonce, hashkey
+ ,"nonce" / Bytes(4)
+ ,"hashkey" / Bytes(64)
+ ,"signature" / Bytes(64)
+);
+
 _SIX_MONTH_IN_SECONDS = 15778463
 
 '''
@@ -12,7 +47,6 @@ What we need for creating a test SigNote:
 [X] Public/Private keypair for central reserve
 [X] Public/Private keypair for mint
 [X] Signature data from central reserve signing
-
 '''
 
 KEYPAIR__CENTRAL_RESERVE = ed25519.create_keypair()
@@ -49,14 +83,16 @@ SN__MINT_PK_CRSIG = SIGNATURE__CR_TO_CM
 #[X] Nonce (UINT32)
 SN_NONCE = os.urandom(4) #4 bytes = uint32
 #[X] SigNote Hash Key String (64-Bytes) (Ex: "In God We Trust. Copyright The United States Federal Reserve")
-SN_HASHKEY = "Bill Gates never said that 640K ought to be enough for anybody!!"
+SN_HASHKEY = 'Bill Gates has never said "640K ought to be enough for anybody!"'
 #[/] The SigNote's Serial Number (BLAKE2b 64-byte Hash of Initial Data)
 
 def sn__generate_init():
+  out = []
+
   #Version Header
-  out = [struct.pack( "!2sI", 'SN', 1)]
+  out += [struct.pack( "!2sH", 'SN', 1)]
   # Start init section
-  out += [struct.pack( "!BBH", 0, 0, 256)]
+  out += [struct.pack( "!BBH", 0, 0, 248)]
 
   # [ISO][SQNUM] = 128 bits
   out += [SN__ISOCODE, SN__SQNUMBER]
@@ -82,3 +118,8 @@ snote = sn__generate_init()
 print len(snote['data'])
 print "SIGNATURE:", snote['signature']
 print repr(snote['data'])
+
+print _SN_SECTION_INIT.parse( snote['data'] )
+
+
+
