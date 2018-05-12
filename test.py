@@ -39,6 +39,41 @@ _SN_SECTION_INIT = Struct(
  ,"signature" / Bytes(64)
 );
 
+'''
+------------- 4-bytes / 32 bits -------------
++------------++-------------++--------------+
+|SECTION TYPE||SECTION FLAGS||SECTION LENGTH|
+|(UINT8=0xFF)||   (UINT8)   ||   (UINT16)   |
++------------++-------------++--------------+
+------------ 16-bytes / 128 bits ------------
++------------------++-----------------------+
+| TAI64N Timestamp ||     Random Nonce      |
+|    (12 bytes)    ||       (UINT32)        |
++------------------++-----------------------+
+------------ 32-bytes / 256-bits ------------
++-------------------------------------------+
+|             SIGNER PUBLIC KEY             |
+|             Ed25519(256-bits)             |
++-------------------------------------------+
+------------ 64-bytes / 512-bits ------------
++-------------------------------------------+
+|    Signature of file up to this point     |
+|             Ed25519(512-bits)             |
++-------------------------------------------+
+'''
+
+_SN_SECTION_CHECKPOINT = Struct(
+  "header" / Struct(
+    "type" / Int8ub
+    ,"flags" / Int8ub
+    ,"length" / Const(112, Int16ub)
+  )
+ ,"timestamp" / Bytes(12)
+ ,"nonce" / Bytes(4)
+ ,"publickey" / Bytes(32)
+ ,"checkpoint_sig" / Bytes(64)
+)
+
 _SIX_MONTH_IN_SECONDS = 15778463
 
 '''
@@ -113,6 +148,18 @@ def sn__generate_init():
   return {"data": data + signature.digest(), "signature": signature.hexdigest()}
 
 
+def sn__checkpoint_apply(blob, skpk):
+  checkpoint = blob + _SN_SECTION_CHECKPOINT.build(dict(
+      header=dict(type=0xFF, flags=0x0)
+     ,timestamp="*"*12
+     ,nonce=os.urandom(4)
+     ,publickey=skpk[1].to_bytes()
+     ,checkpoint_sig="\x00"*64
+     ))
+
+  signature = skpk[0].sign( checkpoint[:-64] )
+  return checkpoint[:-64] + signature
+
 snote = sn__generate_init()
 
 print len(snote['data'])
@@ -121,5 +168,6 @@ print repr(snote['data'])
 
 print _SN_SECTION_INIT.parse( snote['data'] )
 
-
+print "CHECKPOINT"
+print repr( sn__checkpoint_apply(snote['data'], KEYPAIR__CENTRAL_MINT) )
 
